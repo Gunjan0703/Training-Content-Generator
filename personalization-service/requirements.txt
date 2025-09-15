@@ -2,5 +2,5 @@ Flask
 python-dotenv
 langchain
 langchain-aws
-langgraph
+opensearch-py
 boto3

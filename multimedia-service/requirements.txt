@@ -1,6 +1,6 @@
 Flask
 python-dotenv
+psycopg2-binary
 langchain
 langchain-aws
-langgraph
 boto3
