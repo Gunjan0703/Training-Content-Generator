@@ -3,7 +3,7 @@ import re
 from langchain_aws import ChatBedrockConverse
 
 def _llm(temperature=0.6, max_tokens=4096, model_id: str = None):
-    model = model_id or os.getenv("BEDROCK_MODEL_ID", "anthropic.claude-3-5-sonnet-20240620-v1:0")
+    model = model_id or os.getenv("BEDROCK_MODEL_ID", "anthropic.claude-3-haiku-20240307-v1:0")
     return ChatBedrockConverse(
         region_name=os.getenv("AWS_REGION", "us-east-1"),
         model_id=model,

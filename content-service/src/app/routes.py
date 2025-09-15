@@ -3,10 +3,14 @@ from .services import agent_service
 from .agents.graph import build_graph
 
 bp = Blueprint("content_service", __name__)
-graph = build_graph()
+
 
 @bp.route("/create-curriculum", methods=["POST"])
 def create_curriculum_legacy():
+    """
+    Legacy endpoint using agent_service.
+    Expects JSON: { "topic": "Some Training Topic" }
+    """
     data = request.get_json(silent=True) or {}
     topic = data.get("topic")
     if not topic:
@@ -17,26 +21,25 @@ def create_curriculum_legacy():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
 @bp.route("/create-curriculum-agent", methods=["POST"])
 def create_curriculum_agent():
+    """
+    New endpoint using build_graph pipeline.
+    Expects JSON: { "topic": "Some Training Topic" }
+    """
     data = request.get_json(silent=True) or {}
     topic = data.get("topic")
     if not topic:
         return jsonify({"error": "topic is required"}), 400
 
-    state = {
-        "topic": topic,
-        "modules": [],
-        "drafts": {},
-        "final": "",
-        "errors": []
-    }
     try:
-        result = graph.invoke(state)
+        curriculum = build_graph(topic)  # call with topic directly
         return jsonify({
-            "plan": result.get("modules", []),
-            "curriculum": result.get("final", ""),
-            "errors": result.get("errors", [])
+            "topic": topic,
+            "curriculum": curriculum
         }), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
