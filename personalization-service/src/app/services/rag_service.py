@@ -1,7 +1,7 @@
 import os
 from langchain.chains import RetrievalQA
 from langchain_aws import ChatBedrockConverse
-from .vector_store import get_store
+from .vector_store_pg import get_store  # pgvector-backed store
 
 def _llm(temperature=0.5, max_tokens=2048):
     return ChatBedrockConverse(
@@ -11,22 +11,20 @@ def _llm(temperature=0.5, max_tokens=2048):
     )
 
 def summarize_user_weaknesses(user_id: str) -> str:
-    """
-    Retrieves and summarizes a user's weak areas from the vector store.
-    """
     store = get_store()
+    # If user_id is stored in metadata, this filter works; otherwise drop the filter.
     retriever = store.as_retriever(search_kwargs={"k": 4, "filter": {"user_id": user_id}})
-    qa = RetrievalQA.from_chain_type(llm=_llm(temperature=0.3, max_tokens=1024), chain_type="stuff", retriever=retriever)
+    qa = RetrievalQA.from_chain_type(
+        llm=_llm(temperature=0.3, max_tokens=1024),
+        chain_type="stuff",
+        retriever=retriever
+    )
     return qa.run("Summarize this user's weak areas in one concise paragraph.")
 
 def generate_adaptive_content(topic: str, user_id: str, user_role: str) -> dict:
-    """
-    Generates personalized training content that focuses on the user's weak areas.
-    """
     try:
         weaknesses = summarize_user_weaknesses(user_id)
     except Exception:
-        # If vector store not configured or retrieval fails, proceed without special context
         weaknesses = ""
 
     prompt = (

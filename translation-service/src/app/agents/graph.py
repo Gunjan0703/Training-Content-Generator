@@ -18,7 +18,7 @@ class State(TypedDict):
 def _llm(temp=0.2, max_tokens=2048):
     return ChatBedrockConverse(
         region_name=os.getenv("AWS_REGION", "us-east-1"),
-        model_id=os.getenv("BEDROCK_MODEL_ID", "anthropic.claude-3-5-sonnet-20240620-v1:0"),
+        model_id=os.getenv("BEDROCK_MODEL_ID", "anthropic.claude-3-haiku-20240307-v1:0"),
         model_kwargs={"temperature": temp, "max_tokens": max_tokens}
     )
 

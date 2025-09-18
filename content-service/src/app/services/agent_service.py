@@ -1,18 +1,22 @@
 import os
-import re
 from langchain_aws import ChatBedrockConverse
 
-def _llm(temperature=0.6, max_tokens=4096, model_id: str = None):
-    model = model_id or os.getenv("BEDROCK_MODEL_ID", "anthropic.claude-3-haiku-20240307-v1:0")
+def _llm(temperature=0.7, max_tokens=2048, model_id: str = None):
+    model = model_id or os.getenv(
+        "BEDROCK_MODEL_ID",
+        "anthropic.claude-3-haiku-20240307-v1:0"
+    )
     return ChatBedrockConverse(
         region_name=os.getenv("AWS_REGION", "us-east-1"),
         model_id=model,
-        model_kwargs={"temperature": temperature, "max_tokens": max_tokens}
+        temperature=temperature,
+        max_tokens=max_tokens
     )
 
 def _single_module(topic: str) -> str:
     prompt = (
-        f"Create a comprehensive single-module training lesson on '{topic}' with objectives, sections, and a summary."
+        f"Create a comprehensive single-module training lesson on '{topic}' "
+        f"with objectives, sections, and a summary."
     )
     return _llm().invoke(prompt).content
 

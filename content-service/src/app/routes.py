@@ -25,7 +25,7 @@ def create_curriculum_legacy():
 @bp.route("/create-curriculum-agent", methods=["POST"])
 def create_curriculum_agent():
     """
-    New endpoint using build_graph pipeline.
+    New endpoint using LangGraph pipeline.
     Expects JSON: { "topic": "Some Training Topic" }
     """
     data = request.get_json(silent=True) or {}
@@ -34,12 +34,19 @@ def create_curriculum_agent():
         return jsonify({"error": "topic is required"}), 400
 
     try:
-        curriculum = build_graph(topic)  # call with topic directly
+        graph = build_graph()   # returns compiled StateGraph
+        result = graph.invoke({
+            "topic": topic,
+            "modules": [],
+            "drafts": {},
+            "final": "",
+            "errors": []
+        })
         return jsonify({
             "topic": topic,
-            "curriculum": curriculum
+            "modules": result.get("modules", []),
+            "curriculum": result.get("final", ""),
+            "errors": result.get("errors", [])
         }), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
-

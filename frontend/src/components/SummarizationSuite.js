@@ -13,8 +13,15 @@ const SummarizationSuite = () => {
         setIsLoading(true);
         setResult('Summarizing...');
         try {
-            const response = await summarizeText(text, format_type , length);
-            setResult(response.data);
+            const response = await summarizeText(text, format_type, length);
+
+            // Extract summary if response.data is an object
+            const summaryText = typeof response.data === 'object'
+                ? response.data.summary || JSON.stringify(response.data, null, 2)
+                : response.data;
+
+            setResult(summaryText);
+
         } catch (error) {
             setResult(`Error: ${error.response?.data?.error || error.message}`);
         } finally {
@@ -46,7 +53,11 @@ const SummarizationSuite = () => {
                     {isLoading ? 'Summarizing...' : 'Summarize Text'}
                 </button>
             </form>
-            {result && <div className="result-box"><pre>{result}</pre></div>}
+            {result && (
+                <div className="result-box">
+                    <pre>{typeof result === 'object' ? JSON.stringify(result, null, 2) : result}</pre>
+                </div>
+            )}
         </div>
     );
 };

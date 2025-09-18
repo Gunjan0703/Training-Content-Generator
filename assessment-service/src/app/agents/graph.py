@@ -1,51 +1,57 @@
 import os
-from langchain.prompts import PromptTemplate
-from langchain.chains import LLMChain
+from typing import TypedDict
+from langgraph.graph import StateGraph
 from langchain_aws import ChatBedrockConverse
+from .tools import difficulty_estimator
 
-def _llm(temperature=0.4, max_tokens=2048):
+class State(TypedDict):
+    content: str
+    choice: str
+    output: str
+
+def _model():
     return ChatBedrockConverse(
         region_name=os.getenv("AWS_REGION", "us-east-1"),
-        model_id=os.getenv("BEDROCK_MODEL_ID", "anthropic.claude-3-5-sonnet-20240620-v1:0"),
-        model_kwargs={"temperature": temperature, "max_tokens": max_tokens}
+        model_id=os.getenv("BEDROCK_MODEL_ID", "anthropic.claude-3-sonnet-20240229-v1:0"),
+        model_kwargs={"temperature": 0.2}
     )
 
-def _chain(template: str):
-    prompt = PromptTemplate(input_variables=["content"], template=template)
-    return LLMChain(llm=_llm(), prompt=prompt)
+def choose_type(state: State):
+    """
+    Use LLM + heuristic to select assessment type.
+    """
+    content = state["content"]
+    diff = difficulty_estimator(content).get("difficulty", "intermediate")
 
-TEMPLATES = {
-    "multiple_choice": """You are an expert quiz designer. Based on the content below, create a 5-question multiple-choice quiz.
-- Each question must have 4 options (A, B, C, D).
-- Only one option is correct; clearly mark the correct choice in an answer key at the end.
+    # Prompt hint to the LLM; it can override heuristic if it finds scenarios/coding clues
+    hint = f"Difficulty={diff}. Choose the best assessment type: multiple_choice, scenario, or fill_in_the_blanks. Respond with only the type."
+    resp = _model().invoke(f"{hint}\n\nCONTENT:\n{content[:4000]}")
+    text = (resp.content or "").strip().lower()
 
-Content:
----
-{content}
----
-""",
-    "scenario": """You are an instructional designer. Based on the content below, create one realistic workplace scenario that tests practical decision-making.
-- Provide a detailed scenario and a single clear question about the best next action.
-- Provide an 'Ideal Answer' with justification referencing the content.
+    if "scenario" in text:
+        choice = "scenario"
+    elif "fill" in text:
+        choice = "fill_in_the_blanks"
+    elif "multiple" in text or "choice" in text:
+        choice = "multiple_choice"
+    else:
+        # fallback to heuristic
+        choice = "multiple_choice" if diff in {"beginner", "intermediate"} else "scenario"
 
-Content:
----
-{content}
----
-""",
-    "fill_in_the_blanks": """You are a meticulous editor. From the content below, create 5 fill-in-the-blanks items.
-- Each item is a complete sentence with a single blank '____'.
-- Provide an answer key at the end.
+    return {"choice": choice}
 
-Content:
----
-{content}
----
-"""
-}
+def generate(state: State):
+    """
+    Generate assessment using the legacy generator_service for the chosen type.
+    """
+    from app.services.generator_service import create_advanced_assessment
+    output = create_advanced_assessment(state["content"], state["choice"])
+    return {"output": output}
 
-def create_advanced_assessment(content: str, assessment_type: str) -> str:
-    template = TEMPLATES.get(assessment_type, TEMPLATES["multiple_choice"])
-    chain = _chain(template)
-    resp = chain.invoke({"content": content})
-    return resp["text"]
+def build_graph():
+    g = StateGraph(State)
+    g.add_node("choose_type", choose_type)
+    g.add_node("generate", generate)
+    g.set_entry_point("choose_type")
+    g.add_edge("choose_type", "generate")
+    return g.compile()

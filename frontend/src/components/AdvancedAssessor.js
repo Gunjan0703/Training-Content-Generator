@@ -3,22 +3,51 @@ import { createAssessment } from '../services/api';
 
 const AdvancedAssessor = () => {
   const [content, setContent] = useState('');
-  const [assessment_type, setType] = useState('multiple_choice');
-  const [result, setResult] = useState('');
+  const [assessmentType, setAssessmentType] = useState('multiple_choice');
+  const [result, setResult] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-    setResult('Generating assessment...');
+    setResult(null); // clear previous
     try {
-      const response = await createAssessment(content, assessment_type);
+      const response = await createAssessment(content, assessmentType);
       setResult(response.data);
     } catch (error) {
-      setResult(`Error: ${error.response?.data?.error || error.message}`);
+      setResult({ error: error.response?.data?.error || error.message });
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Helper to render a single assessment object
+  const renderAssessment = (item, idx) => (
+    <div key={idx} className="assessment-item">
+      {item.assessment && <p><strong>Question:</strong> {item.assessment}</p>}
+      {item.type && <p><strong>Type:</strong> {item.type}</p>}
+    </div>
+  );
+
+  // Decide how to render result
+  const renderResult = () => {
+    if (!result) return null;
+
+    // If backend returned an error
+    if (result.error) return <p style={{ color: 'red' }}>{result.error}</p>;
+
+    // If result is an array of assessments
+    if (Array.isArray(result)) {
+      return result.map(renderAssessment);
+    }
+
+    // If result is a single object
+    if (typeof result === 'object') {
+      return renderAssessment(result, 0);
+    }
+
+    // If result is a plain string
+    return <pre>{result}</pre>;
   };
 
   return (
@@ -32,7 +61,7 @@ const AdvancedAssessor = () => {
           placeholder="Paste course content here..."
           required
         />
-        <select value={assessment_type} onChange={(e) => setType(e.target.value)}>
+        <select value={assessmentType} onChange={(e) => setAssessmentType(e.target.value)}>
           <option value="multiple_choice">Multiple Choice</option>
           <option value="scenario">Scenario-Based</option>
           <option value="fill_in_the_blanks">Fill-in-the-Blanks</option>
@@ -41,7 +70,7 @@ const AdvancedAssessor = () => {
           {isLoading ? 'Generating...' : 'Create Assessment'}
         </button>
       </form>
-      {result && <div className="result-box"><pre>{result}</pre></div>}
+      <div className="result-box">{renderResult()}</div>
     </div>
   );
 };

@@ -4,4 +4,4 @@ app = create_app()
 
 if __name__ == "__main__":
     # For local dev; use Gunicorn in containers
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(host="0.0.0.0", port=5006, debug=True)

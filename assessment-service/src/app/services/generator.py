@@ -2,6 +2,9 @@ from langchain.prompts import PromptTemplate
 from langchain.chains import LLMChain
 from langchain_aws import ChatBedrock
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 def get_llm():
     """Initializes and returns the ChatBedrock LLM client."""

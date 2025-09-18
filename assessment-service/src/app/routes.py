@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from .services import generator_service
+from .services import generator
 from .agents.graph import build_graph
 
 bp = Blueprint("assessment_service", __name__)
@@ -13,7 +13,7 @@ def create_assessment_legacy():
     if not content:
         return jsonify({"error": "content is required"}), 400
     try:
-        result = generator_service.create_advanced_assessment(content, assessment_type)
+        result = generator.create_advanced_assessment(content, assessment_type)
         return jsonify({"assessment": result, "type": assessment_type}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500

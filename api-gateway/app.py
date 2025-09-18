@@ -8,12 +8,12 @@ CORS(app)
 
 # Service URLs (use docker-compose/k8s service names)
 SERVICE_URLS = {
-    "content": os.getenv("CONTENT_SERVICE_URL", "http://content-service:5000"),
-    "assessment": os.getenv("ASSESSMENT_SERVICE_URL", "http://assessment-service:5000"),
-    "personalization": os.getenv("PERSONALIZATION_SERVICE_URL", "http://personalization-service:5000"),
-    "summarization": os.getenv("SUMMARIZATION_SERVICE_URL", "http://summarization-service:5000"),
-    "multimedia": os.getenv("MULTIMEDIA_SERVICE_URL", "http://multimedia-service:5000"),
-    "translation": os.getenv("TRANSLATION_SERVICE_URL", "http://translation-service:5000"),
+    "content": os.getenv("CONTENT_SERVICE_URL", "http://localhost:5001"),
+    "assessment": os.getenv("ASSESSMENT_SERVICE_URL", "http://localhost:5002"),
+    "personalization": os.getenv("PERSONALIZATION_SERVICE_URL", "http://localhost:5003"),
+    "summarization": os.getenv("SUMMARIZATION_SERVICE_URL", "http://localhost:5004"),
+    "multimedia": os.getenv("MULTIMEDIA_SERVICE_URL", "http://localhost:5005"),
+    "translation": os.getenv("TRANSLATION_SERVICE_URL", "http://localhost:5006"),
 }
 
 DEFAULT_TIMEOUT = int(os.getenv("GATEWAY_TIMEOUT_SECONDS", "180"))

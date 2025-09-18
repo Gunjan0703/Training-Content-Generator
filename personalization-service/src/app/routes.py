@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from .services import rag_service
-from .agents.graph import build_graph
+from .agents.vector import build_graph
 
 bp = Blueprint("personalization_service", __name__)
 graph = build_graph()
@@ -20,6 +20,7 @@ def personalize_content():
         return jsonify(result), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 @bp.route("/personalize-content-agent", methods=["POST"])
 def personalize_content_agent():

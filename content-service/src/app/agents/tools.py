@@ -1,15 +1,17 @@
 import os
-import re
-from typing import List, Dict
 from langchain_aws import ChatBedrockConverse
+from typing import List, Dict
 
-def _llm(temperature=0.5, max_tokens=2048, model_id: str = None):
-    # Prefer Claude 3.5 Sonnet; fall back to Sonnet 3
-    model = model_id or os.getenv("BEDROCK_MODEL_ID", "anthropic.claude-3-5-sonnet-20240620-v1:0")
+def _llm(temperature=0.7, max_tokens=2048, model_id: str = None):
+    model = model_id or os.getenv(
+        "BEDROCK_MODEL_ID",
+        "anthropic.claude-3-haiku-20240307-v1:0"
+    )
     return ChatBedrockConverse(
         region_name=os.getenv("AWS_REGION", "us-east-1"),
         model_id=model,
-        model_kwargs={"temperature": temperature, "max_tokens": max_tokens}
+        temperature=temperature,
+        max_tokens=max_tokens
     )
 
 def topic_deconstructor(topic: str) -> List[str]:
