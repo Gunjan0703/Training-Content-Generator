@@ -1,5 +1,5 @@
 import os
-from app.routes import personalize_content,personalize_content_agent
+from app.routes import bp
 from flask import Flask
 from flask_cors import CORS
 from dotenv import load_dotenv
@@ -12,7 +12,7 @@ def create_app():
 
     # Import and register routes blueprint
     from . import routes
-    app.register_blueprint(routes.bp, url_prefix="/api")
+    app.register_blueprint(bp)
 
     @app.route("/health", methods=["GET"])
     def health():

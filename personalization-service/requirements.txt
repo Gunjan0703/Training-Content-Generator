@@ -1,6 +1,13 @@
-Flask
 python-dotenv
 langchain
 langchain-aws
-opensearch-py
 boto3
+flask
+flask-cors
+boto3
+sqlalchemy
+psycopg2-binary
+pgvector
+requests
+langchain_community
+langgraph

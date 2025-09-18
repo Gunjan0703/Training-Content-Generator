@@ -1,7 +1,9 @@
 import os
-from typing import TypedDict, Literal
+from typing import TypedDict, Literal, Annotated
 from langgraph.graph import StateGraph, END
 from langchain_aws import ChatBedrockConverse
+import json
+from app.services.vector_store_pg import get_user_weaknesses
 
 class State(TypedDict):
     topic: str
@@ -11,16 +13,22 @@ class State(TypedDict):
     weaknesses: str
     draft: str
     errors: list[str]
-    pretest: str  # optional, added when generated
+    pretest: str
 
 def _llm(temp=0.3, max_tokens=1024):
+    """Initialize AWS Bedrock Claude model with given parameters."""
     return ChatBedrockConverse(
         region_name=os.getenv("AWS_REGION", "us-east-1"),
-        model_id=os.getenv("BEDROCK_MODEL_ID", "anthropic.claude-3-5-sonnet-20240620-v1:0"),
-        model_kwargs={"temperature": temp, "max_tokens": max_tokens}
+        model_id=os.getenv("BEDROCK_MODEL_ID", "anthropic.claude-3-haiku-20240307-v1:0"),
+        temperature=temp,
+        max_tokens=max_tokens
     )
 
-def decide_path(state: State):
+def decide_path(state: State) -> dict:
+    """
+    Decide the best path for content personalization based on topic and role.
+    Returns: Updated state with decision key.
+    """
     topic = state["topic"]
     role = state["user_role"]
     hint = (
@@ -30,8 +38,7 @@ def decide_path(state: State):
         "- direct: directly generate module without extra steps\n"
         "Return only one word: retrieve, pretest, or direct."
     )
-    msg = f"{hint}\n\nTopic: {topic}\nRole: {role}\n"
-    text = (_llm(temp=0.2).invoke(msg).content or "").strip().lower()
+    text = (_llm(temp=0.2).invoke(f"{hint}\n\nTopic: {topic}\nRole: {role}").content or "").strip().lower()
     if "retrieve" in text:
         decision = "retrieve"
     elif "pretest" in text:
@@ -40,64 +47,142 @@ def decide_path(state: State):
         decision = "direct"
     return {"decision": decision}
 
-def maybe_retrieve_weaknesses(state: State):
+def maybe_retrieve_weaknesses(state: State) -> dict:
+    """
+    Optionally retrieve user weaknesses if decision is 'retrieve'.
+    Returns: Updated state with weaknesses and any errors.
+    """
     if state["decision"] != "retrieve":
         return {"weaknesses": ""}
     try:
-        from app.services.rag_service import summarize_user_weaknesses
-        wk = summarize_user_weaknesses(state["user_id"])
-        return {"weaknesses": wk}
+        weaknesses = get_user_weaknesses(state["user_id"])
+        if not weaknesses:
+            return {"weaknesses": ""}
+        
+        # Summarize weaknesses into a coherent text
+        weakness_texts = [w["weakness_text"] for w in weaknesses]
+        prompt = f"Summarize these learning gaps into 2-3 key areas:\n{json.dumps(weakness_texts)}"
+        summary = _llm(temp=0.2).invoke(prompt).content
+        
+        return {"weaknesses": summary}
     except Exception as e:
         errs = list(state.get("errors", []))
         errs.append(f"retrieve:{e}")
         return {"weaknesses": "", "errors": errs}
 
-def maybe_generate_pretest(state: State):
+def maybe_generate_pretest(state: State) -> dict:
+    """
+    Optionally generate a pretest if decision is 'pretest'.
+    Returns: Updated state with pretest content and any errors.
+    """
     if state["decision"] != "pretest":
         return {}
     prompt = (
         "Create a short pretest of 3 questions to quickly assess user knowledge on the topic below. "
-        "Include an answer key.\n\n"
+        "Format:\n1. Multiple choice questions labeled Q1-Q3\n"
+        "2. Clear answer key with explanations\n"
+        "3. Focus on key concepts and common misconceptions\n\n"
         f"Topic: {state['topic']}\nRole: {state['user_role']}"
     )
     try:
         pretest = _llm(temp=0.3, max_tokens=800).invoke(prompt).content
-        return {"pretest": pretest}
+        return {"pretest": str(pretest)}
     except Exception as e:
         errs = list(state.get("errors", []))
         errs.append(f"pretest:{e}")
         return {"pretest": "", "errors": errs}
 
-def generate_draft(state: State):
+def generate_draft(state: State) -> dict:
+    """
+    Generate personalized training content based on state context.
+    Returns: Updated state with draft content.
+    """
     wk = state.get("weaknesses", "")
     base = (
         f"You are a corporate training designer. Create a module on '{state['topic']}' "
         f"for role '{state['user_role']}'.\n"
-        "Structure: introduction, 3-5 objectives, 2-4 sections with examples/exercises, and a summary.\n"
-        "Tone: clear, practical, role-relevant.\n"
+        "Required Structure:\n"
+        "1. Introduction (context and relevance)\n"
+        "2. Learning Objectives (3-5 clear, measurable objectives)\n"
+        "3. Main Content (2-4 sections with practical examples)\n"
+        "4. Exercises (hands-on practice activities)\n"
+        "5. Summary (key takeaways)\n\n"
+        "Style Guide:\n"
+        "- Clear, concise language\n"
+        "- Role-specific examples\n"
+        "- Practical applications\n"
+        "- Progressive complexity\n"
     )
     if wk:
-        base += f"\nFocus remediation on these known weak areas: {wk}\n"
-    draft = _llm(temp=0.6, max_tokens=2048).invoke(base).content
-    pretest = state.get("pretest")
-    if pretest:
-        draft = f"## Pretest\n{pretest}\n\n## Module\n{draft}"
-    return {"draft": draft}
+        base += f"\nFocus on addressing these identified gaps:\n{wk}\n"
 
-def quality_check(state: State):
+    try:
+        draft = _llm(temp=0.6, max_tokens=2048).invoke(base).content
+        pretest = state.get("pretest")
+        if pretest:
+            draft = f"## Pretest\n{pretest}\n\n## Training Module\n{draft}"
+        return {"draft": str(draft)}
+    except Exception as e:
+        errs = list(state.get("errors", []))
+        errs.append(f"draft:{e}")
+        return {"draft": "", "errors": errs}
+
+def quality_check(state: State) -> dict:
+    """
+    Verify content meets quality standards and add missing sections.
+    Returns: Updated state with improved content if needed.
+    """
     draft = state["draft"] or ""
     missing = []
-    required = ["introduction", "objectives", "summary"]
+    required = ["introduction", "objectives", "summary", "exercises"]
     low = draft.lower()
+    
     for sec in required:
         if sec not in low:
             missing.append(sec)
+            
     if not missing:
         return {}
-    addendum = _llm(temp=0.2, max_tokens=400).invoke(
-        f"Add an addendum ensuring the draft includes or clarifies these missing sections: {', '.join(missing)}"
-    ).content
-    return {"draft": draft + "\n\n## Addendum\n" + addendum}
+        
+    try:
+        prompt = (
+            f"Add these missing sections to the training module: {', '.join(missing)}.\n"
+            "Keep the additions concise but meaningful, matching the existing style and flow.\n"
+            "Original content:\n\n{draft}"
+        )
+        improved = _llm(temp=0.2, max_tokens=1024).invoke(prompt).content
+        return {"draft": improved}
+    except Exception as e:
+        errs = list(state.get("errors", []))
+        errs.append(f"quality:{e}")
+        return {"errors": errs}
+
+def build_graph() -> StateGraph:
+    """
+    Build the LangGraph workflow for content personalization.
+    Returns: Configured StateGraph ready for execution.
+    """
+    # Create the graph
+    workflow = StateGraph(State)
+    
+    # Add nodes
+    workflow.add_node("decide_path", decide_path)
+    workflow.add_node("retrieve_weaknesses", maybe_retrieve_weaknesses)
+    workflow.add_node("generate_pretest", maybe_generate_pretest)
+    workflow.add_node("generate_draft", generate_draft)
+    workflow.add_node("quality_check", quality_check)
+    
+    # Configure edges
+    workflow.set_entry_point("decide_path")
+    workflow.add_edge("decide_path", "retrieve_weaknesses")
+    workflow.add_edge("retrieve_weaknesses", "generate_pretest")
+    workflow.add_edge("generate_pretest", "generate_draft")
+    workflow.add_edge("generate_draft", "quality_check")
+    workflow.add_edge("quality_check", END)
+    
+    # Compile
+    return workflow.compile()
+    return {"draft": draft + "\n\n## Addendum\n" + str(addendum)}  # ensure string
 
 def build_graph():
     g = StateGraph(State)
