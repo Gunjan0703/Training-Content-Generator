@@ -18,9 +18,10 @@ export const createAssessment = (content, assessment_type) => {
   return apiClient.post('/create-assessment', { content, assessment_type });
 };
 
-export const personalizeContent = (topic, user_id, user_role) => {
+export const personalizeContent = (topic, user_id, user_role = 'employee') => {
   return apiClient.post('/personalize-content', { topic, user_id, user_role });
 };
+
 
 export const summarizeText = (text, format_type, length) => {
   return apiClient.post('/summarize-text', { text, format_type, length });

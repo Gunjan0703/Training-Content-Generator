@@ -4,9 +4,9 @@ from flask_cors import CORS
 import requests
 
 app = Flask(__name__)
-CORS(app)
+CORS(app)  # Enable CORS for all routes
 
-# Service URLs (use docker-compose/k8s service names)
+# ---------- SERVICE URLS ----------
 SERVICE_URLS = {
     "content": os.getenv("CONTENT_SERVICE_URL", "http://localhost:5001"),
     "assessment": os.getenv("ASSESSMENT_SERVICE_URL", "http://localhost:5002"),
@@ -18,17 +18,33 @@ SERVICE_URLS = {
 
 DEFAULT_TIMEOUT = int(os.getenv("GATEWAY_TIMEOUT_SECONDS", "180"))
 
+# ---------- HANDLE OPTIONS PRE-FLIGHT ----------
+@app.before_request
+def handle_options():
+    if request.method == "OPTIONS":
+        response = app.make_default_options_response()
+        headers = response.headers
+
+        headers["Access-Control-Allow-Origin"] = "*"
+        headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+        headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+
+        return response
+
+# ---------- HELPER TO FORWARD REQUESTS ----------
 def _forward_json(service_key: str, endpoint: str):
     if service_key not in SERVICE_URLS:
         return jsonify({"error": f"Unknown service '{service_key}'"}), 400
+
     url = f"{SERVICE_URLS[service_key].rstrip('/')}/{endpoint.lstrip('/')}"
+    print(f"[API Gateway] Forwarding request to: {url}")
+    print(f"[API Gateway] Request JSON: {request.get_json(silent=True)}")
+
     try:
         r = requests.post(url, json=(request.get_json(silent=True) or {}), timeout=DEFAULT_TIMEOUT)
         r.raise_for_status()
-        # Return JSON transparently
         return jsonify(r.json()), r.status_code
     except requests.exceptions.HTTPError as he:
-        # Proxy backend error payload if present
         try:
             return jsonify(r.json()), r.status_code
         except Exception:
@@ -36,11 +52,12 @@ def _forward_json(service_key: str, endpoint: str):
     except requests.exceptions.RequestException as e:
         return jsonify({"error": "service_unavailable", "details": str(e)}), 503
 
+# ---------- HEALTH ----------
 @app.route("/health", methods=["GET"])
 def health():
     return {"status": "ok", "service": "api-gateway"}, 200
 
-# ---------- Content ----------
+# ---------- CONTENT ----------
 @app.route("/api/create-curriculum", methods=["POST"])
 def create_curriculum():
     return _forward_json("content", "/create-curriculum")
@@ -49,7 +66,7 @@ def create_curriculum():
 def create_curriculum_agent():
     return _forward_json("content", "/create-curriculum-agent")
 
-# ---------- Assessment ----------
+# ---------- ASSESSMENT ----------
 @app.route("/api/create-assessment", methods=["POST"])
 def create_assessment():
     return _forward_json("assessment", "/create-assessment")
@@ -58,7 +75,7 @@ def create_assessment():
 def create_assessment_agent():
     return _forward_json("assessment", "/create-assessment-agent")
 
-# ---------- Personalization ----------
+# ---------- PERSONALIZATION ----------
 @app.route("/api/personalize-content", methods=["POST"])
 def personalize_content():
     return _forward_json("personalization", "/personalize-content")
@@ -67,12 +84,12 @@ def personalize_content():
 def personalize_content_agent():
     return _forward_json("personalization", "/personalize-content-agent")
 
-# ---------- Summarization ----------
+# ---------- SUMMARIZATION ----------
 @app.route("/api/summarize-text", methods=["POST"])
 def summarize_text():
     return _forward_json("summarization", "/summarize-text")
 
-# ---------- Translation ----------
+# ---------- TRANSLATION ----------
 @app.route("/api/localize-text", methods=["POST"])
 def localize_text():
     return _forward_json("translation", "/localize-text")
@@ -81,18 +98,16 @@ def localize_text():
 def localize_text_agent():
     return _forward_json("translation", "/localize-text-agent")
 
-# ---------- Multimedia ----------
+# ---------- MULTIMEDIA ----------
 @app.route("/api/generate-image", methods=["POST"])
 def generate_image():
     return _forward_json("multimedia", "/generate-image")
 
-# Stream media bytes via the gateway so frontend does not call internal service directly
 @app.route("/api/media/<int:media_id>", methods=["GET"])
 def media_proxy(media_id: int):
     base = SERVICE_URLS["multimedia"].rstrip("/")
     url = f"{base}/media/{media_id}"
     try:
-        # Stream response to client; exclude hop-by-hop headers
         with requests.get(url, stream=True, timeout=60) as r:
             headers = {
                 k: v for k, v in r.headers.items()
@@ -102,5 +117,7 @@ def media_proxy(media_id: int):
     except requests.exceptions.RequestException as e:
         return jsonify({"error": "service_unavailable", "details": str(e)}), 503
 
+# ---------- RUN ----------
 if __name__ == "__main__":
+    print("[API Gateway] Starting on port 5000...")
     app.run(host="0.0.0.0", port=int(os.getenv("API_GATEWAY_PORT", "5000")), debug=True)

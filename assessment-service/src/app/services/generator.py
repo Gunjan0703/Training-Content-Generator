@@ -10,7 +10,7 @@ def get_llm():
     """Initializes and returns the ChatBedrock LLM client."""
     return ChatBedrock(
         region_name=os.environ.get("AWS_REGION"),
-        model_id="anthropic.claude-3-sonnet-20240229-v1:0", # A balanced model for this task
+        model_id="anthropic.claude-3-haiku-20240307-v1:0", # A balanced model for this task
         model_kwargs={
             "temperature": 0.5,
             "max_tokens": 2048
