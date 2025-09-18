@@ -5,18 +5,25 @@ const PersonalizationEngine = () => {
   const [topic, setTopic] = useState('');
   const [user_id, setUserId] = useState('user-123-sales');
   const [user_role, setUserRole] = useState('Sales');
-  const [result, setResult] = useState('');
+  const [content, setContent] = useState('');
+  const [weaknessUsed, setWeaknessUsed] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-    setResult('Adapting content using RAG...');
+    setContent('Adapting content using RAG...');
+    setWeaknessUsed(false);
+
     try {
       const response = await personalizeContent(topic, user_id, user_role);
-      setResult(response.data);
+      const data = response.data;
+
+      setContent(data.personalized_content || '');
+      setWeaknessUsed(data.weakness_context_used || false);
     } catch (error) {
-      setResult(`Error: ${error.response?.data?.error || error.message}`);
+      setContent(`Error: ${error.response?.data?.error || error.message}`);
+      setWeaknessUsed(false);
     } finally {
       setIsLoading(false);
     }
@@ -52,7 +59,13 @@ const PersonalizationEngine = () => {
           {isLoading ? 'Adapting...' : 'Generate Personalized Module'}
         </button>
       </form>
-      {result && <div className="result-box"><pre>{result}</pre></div>}
+
+      {content && (
+        <div className="result-box">
+          {/* <p><strong>Weakness Context Used:</strong> {weaknessUsed ? 'Yes' : 'No'}</p> */}
+          <pre>{content}</pre>
+        </div>
+      )}
     </div>
   );
 };
