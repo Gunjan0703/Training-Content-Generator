@@ -18,9 +18,9 @@ os.makedirs(os.path.join(static_dir, "images"), exist_ok=True)
 app.register_blueprint(routes_bp)
 
 # Add route for serving static files
-@app.route('/static/<path:filename>')
-def serve_static(filename):
-    return send_from_directory(static_dir, filename)
+@app.route('/static/images/<path:filename>')
+def serve_static_images(filename):
+    return send_from_directory(os.path.join(static_dir, 'images'), filename)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8001, debug=True)

@@ -1,106 +1,74 @@
-import React, { useState } from 'react';
-import { generateImage, generateLLMFlow } from '../services/api';
+import React, { useState } from "react";
 
 const MultimediaStudio = () => {
-    const [prompt, setPrompt] = useState('');
-    const [imageType, setImageType] = useState('general');
-    const [result, setResult] = useState('');
-    const [imageUrl, setImageUrl] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
+  const [prompt, setPrompt] = useState("");
+  const [imageType, setImageType] = useState("general");
+  const [imageUrl, setImageUrl] = useState("");
+  const [loading, setLoading] = useState(false);
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setIsLoading(true);
-        setResult(`Generating ${imageType === 'flowchart' ? 'flow chart' : 'image'}...`);
-        setImageUrl('');
-        try {
-            const response = await generateImage(prompt, imageType);
-            if (response.data.image_url) {
-                const fullUrl = response.data.image_url.startsWith('http') ? 
-                    response.data.image_url : 
-                    `${process.env.REACT_APP_MULTIMEDIA_SERVICE_URL || 'http://localhost:8001'}${response.data.image_url}`;
-                setImageUrl(fullUrl);
-                setResult(response.data.message || 'Generated successfully!');
-            }
-        } catch (error) {
-            setResult(`Error: ${error.response?.data?.detail || error.message}`);
-        } finally {
-            setIsLoading(false);
-        }
-    };
+  const generateImage = async () => {
+    setLoading(true);
+    setImageUrl("");
 
-    return (
-        <div className="feature-card">
-            <h2>6. Multimedia Studio</h2>
-            <p>Generate images, diagrams, and flowcharts using AI.</p>
-            
-            <form onSubmit={handleSubmit} className="generation-form">
-                <div className="input-group">
-                    <input
-                        type="text"
-                        value={prompt}
-                        onChange={(e) => setPrompt(e.target.value)}
-                        placeholder={imageType === 'flowchart' ? 
-                            "Enter steps for flowchart (e.g., 'Step 1, Step 2, Step 3' or 'LLM Architecture')" :
-                            "Enter prompt for image generation..."}
-                        required
-                    />
-                    <select 
-                        value={imageType} 
-                        onChange={(e) => setImageType(e.target.value)}
-                        disabled={isLoading}
-                    >
-                        <option value="general">General Image</option>
-                        <option value="flowchart">Flow Chart</option>
-                    </select>
-                </div>
-                <button type="submit" disabled={isLoading}>
-                    {isLoading ? 'Generating...' : `Generate ${imageType === 'flowchart' ? 'Flow Chart' : 'Image'}`}
-                </button>
-            </form>
+    try {
+      const response = await fetch("http://localhost:8001/generate-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt, image_type: imageType }),
+      });
 
-            {imageUrl && (
-                <div className="result-box">
-                    <img 
-                        src={imageUrl} 
-                        alt={prompt} 
-                        style={{ maxWidth: '100%', marginTop: '20px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }} 
-                    />
-                </div>
-            )}
+      const data = await response.json();
 
-            {result && <div className="status-message">{result}</div>}
+      if (response.ok) {
+        setImageUrl(`http://localhost:8001${data.image_url}`);
+      } else {
+        alert(data.error || "Image generation failed");
+      }
+    } catch (error) {
+      console.error("Error generating image:", error);
+      alert("Error generating image");
+    }
 
-            <style jsx>{`
-                .generation-form {
-                    margin-top: 20px;
-                }
-                .input-group {
-                    display: flex;
-                    gap: 10px;
-                    margin-bottom: 10px;
-                }
-                .input-group input {
-                    flex: 1;
-                }
-                .input-group select {
-                    width: 150px;
-                }
-                .result-box {
-                    margin-top: 20px;
-                    padding: 10px;
-                    border-radius: 4px;
-                    background: white;
-                }
-                .status-message {
-                    margin-top: 10px;
-                    padding: 10px;
-                    border-radius: 4px;
-                    background: #f5f5f5;
-                }
-            `}</style>
+    setLoading(false);
+  };
+
+  return (
+    <div className="p-6">
+      <h1 className="text-2xl font-bold mb-4">🎨 Multimedia Studio</h1>
+
+      <input
+        type="text"
+        placeholder="Enter prompt..."
+        value={prompt}
+        onChange={(e) => setPrompt(e.target.value)}
+        className="border p-2 rounded w-full mb-3"
+      />
+
+      <select
+        value={imageType}
+        onChange={(e) => setImageType(e.target.value)}
+        className="border p-2 rounded mb-3"
+      >
+        <option value="general">General</option>
+        <option value="flowchart">Flowchart</option>
+      </select>
+
+      <button
+        onClick={generateImage}
+        disabled={loading}
+        className="bg-blue-500 text-white px-4 py-2 rounded"
+      >
+        {loading ? "Generating..." : "Generate Image"}
+      </button>
+
+      {imageUrl && (
+        <div className="mt-4">
+          <p className="mb-2 font-medium">Generated Image:</p>
+          <img src={imageUrl} alt="Generated" className="border rounded" />
         </div>
-    );
+      )}
+    </div>
+  );
 };
 
 export default MultimediaStudio;
