@@ -1,7 +1,26 @@
-from app import create_app
+from flask import Flask, send_from_directory
+from flask_cors import CORS
+import os
+from app.routes import routes_bp
 
-app = create_app()
+# Create Flask app
+app = Flask(__name__)
 
-if __name__ == "__main__":
-    # For local dev; use Gunicorn in containers
-    app.run(host="0.0.0.0", port=5005, debug=True)
+# Configure CORS
+CORS(app)
+
+# Configure static directory for serving images
+static_dir = os.path.join(os.path.dirname(__file__), "app", "static")
+os.makedirs(static_dir, exist_ok=True)
+os.makedirs(os.path.join(static_dir, "images"), exist_ok=True)
+
+# Register blueprints
+app.register_blueprint(routes_bp)
+
+# Add route for serving static files
+@app.route('/static/<path:filename>')
+def serve_static(filename):
+    return send_from_directory(static_dir, filename)
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=8001, debug=True)

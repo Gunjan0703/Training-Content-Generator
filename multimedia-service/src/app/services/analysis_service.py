@@ -6,7 +6,7 @@ from langchain.chains import LLMChain
 def _llm(temperature=0.3, max_tokens=1024):
     return ChatBedrockConverse(
         region_name=os.getenv("AWS_REGION", "us-east-1"),
-        model_id=os.getenv("BEDROCK_MODEL_ID", "anthropic.claude-3-5-sonnet-20240620-v1:0"),
+        model_id=os.getenv("BEDROCK_MODEL_ID", "anthropic.claude-3-haiku-20240307-v1:0"),
         model_kwargs={"temperature": temperature, "max_tokens": max_tokens}
     )
 

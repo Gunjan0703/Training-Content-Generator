@@ -1,27 +1,29 @@
-from flask import Blueprint, request, jsonify, send_file
-from io import BytesIO
-from .services.image_service import generate_and_store_image
-from .services.storage_db import fetch_media
+from flask import Blueprint, request, jsonify, send_from_directory
+from .services.image_service import image_service
+import os
 
-bp = Blueprint("multimedia_service", __name__)
+routes_bp = Blueprint('routes', __name__)
 
-@bp.route("/generate-image", methods=["POST"])
+@routes_bp.route("/")
+def root():
+    return jsonify({"message": "Multimedia Service API"})
+
+@routes_bp.route("/generate-image", methods=['POST'])
 def generate_image():
-    data = request.get_json(silent=True) or {}
-    prompt = data.get("prompt")
-    if not prompt:
-        return jsonify({"error": "prompt is required"}), 400
-
+    """Generate any type of image including flowcharts."""
     try:
-        media_id = generate_and_store_image(prompt)
-        return jsonify({"media_id": media_id}), 200
+        data = request.get_json()
+        prompt = data.get('prompt')
+        image_type = data.get('image_type', 'general')  # Default to general if not specified
+        
+        if not prompt:
+            return jsonify({"error": "Prompt is required"}), 400
+            
+        filename, image_path = image_service.generate_and_store_image(prompt, image_type)
+        return jsonify({
+            "image_url": f"/static/{filename}",
+            "message": f"{'Flow chart' if image_type == 'flowchart' else 'Image'} generated successfully",
+            "filename": filename
+        })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
-@bp.route("/media/<int:media_id>", methods=["GET"])
-def get_media(media_id: int):
-    row = fetch_media(media_id)
-    if not row:
-        return jsonify({"error": "not found"}), 404
-    filename, mimetype, size_bytes, data = row
-    return send_file(BytesIO(bytes(data)), mimetype=mimetype, as_attachment=False, download_name=filename)

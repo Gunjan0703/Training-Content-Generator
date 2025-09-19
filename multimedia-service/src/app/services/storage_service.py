@@ -1,20 +1,40 @@
-import psycopg2
-from .db import get_conn
+from typing import Optional, Tuple
+from sqlalchemy.orm import Session
+from ..db import get_db
+from .vector_db import MediaObject, Session
 
 def save_media(filename: str, mimetype: str, data: bytes) -> int:
-    sql = """
-    INSERT INTO media_objects (filename, mimetype, size_bytes, data)
-    VALUES (%s, %s, %s, %s) RETURNING id
-    """
-    with get_conn() as conn, conn.cursor() as cur:
-        cur.execute(sql, (filename, mimetype, len(data), psycopg2.Binary(data)))
-        new_id = cur.fetchone()
-        conn.commit()
-        return new_id
+    """Save media file to database and return media_id."""
+    size_bytes = len(data)
+    
+    for db in get_db():
+        try:
+            media = MediaObject(
+                filename=filename,
+                mimetype=mimetype,
+                size_bytes=size_bytes,
+                data=data
+            )
+            db.add(media)
+            db.commit()
+            db.refresh(media)
+            return media.id
+        except Exception as e:
+            db.rollback()
+            raise Exception(f"Failed to save media: {str(e)}")
 
-def fetch_media(media_id: int):
-    sql = "SELECT filename, mimetype, size_bytes, data FROM media_objects WHERE id=%s"
-    with get_conn() as conn, conn.cursor() as cur:
-        cur.execute(sql, (media_id,))
-        row = cur.fetchone()
-        return row  # (filename, mimetype, size_bytes, data)
+def fetch_media(media_id: int) -> Optional[Tuple[str, str, int, bytes]]:
+    """Fetch media file from database."""
+    for db in get_db():
+        media = db.query(MediaObject)\
+            .filter(MediaObject.id == media_id)\
+            .first()
+        
+        if media:
+            return (
+                media.filename,
+                media.mimetype,
+                media.size_bytes,
+                media.data
+            )
+        return None

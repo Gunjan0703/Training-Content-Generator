@@ -1,10 +1,20 @@
 import axios from 'axios';
 
-// All requests go to the API Gateway running on localhost:5000
+// API Gateway URL
 const API_GATEWAY_URL = 'http://localhost:5000/api';
+
+// Multimedia Service URL
+const MULTIMEDIA_SERVICE_URL = process.env.REACT_APP_MULTIMEDIA_SERVICE_URL || 'http://localhost:8001';
 
 const apiClient = axios.create({
   baseURL: API_GATEWAY_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+const multimediaClient = axios.create({
+  baseURL: MULTIMEDIA_SERVICE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -27,8 +37,8 @@ export const summarizeText = (text, format_type, length) => {
   return apiClient.post('/summarize-text', { text, format_type, length });
 };
 
-export const generateImage = (prompt) => {
-  return apiClient.post('/generate-image', { prompt });
+export const generateImage = (prompt, image_type = 'general') => {
+  return multimediaClient.post('/generate-image', { prompt, image_type });
 };
 
 export const localizeText = (text, target_language, glossary, localize) => {
