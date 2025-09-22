@@ -2,11 +2,5 @@ flask
 flask-cors
 python-dotenv
 psycopg2-binary
-langchain
-langchain-aws
-boto3
-sqlalchemy
-pgvector
-graphviz
-gunicorn
+requests
 pillow
