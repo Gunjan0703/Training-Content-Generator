@@ -154,46 +154,283 @@ class EnhancedImageService:
             return None
 
     def _draw_flowchart_elements(self, draw, prompt):
-        """Draw flowchart-style elements."""
-        # Box positions
-        boxes = [
-            (200, 150, 400, 220, "START"),
-            (200, 280, 400, 350, "Process 1"),
-            (200, 410, 400, 480, "Decision"),
-            (200, 540, 400, 610, "END"),
-            (600, 280, 800, 350, "Process 2"),
+        """Draw flowchart-style elements - detects specific flowchart types."""
+        # Check for specific flowchart types
+        if any(keyword in prompt.lower() for keyword in ['user login', 'authentication', 'auth']):
+            self._draw_login_flowchart(draw)
+        elif any(keyword in prompt.lower() for keyword in ['deployment', 'ci/cd', 'pipeline']):
+            self._draw_deployment_flowchart(draw)
+        else:
+            self._draw_generic_flowchart(draw, prompt)
+    
+    def _draw_login_flowchart(self, draw):
+        """Draw a user login process flowchart."""
+        # Flowchart elements with specific login process
+        elements = [
+            (200, 120, 400, 170, "START: User Login", "#f0f9ff", "#0ea5e9"),
+            (200, 200, 400, 250, "Enter Credentials", "#eff6ff", "#3b82f6"),
+            (200, 280, 400, 350, "Valid\nCredentials?", "#fef3c7", "#f59e0b"),  # Diamond shape
+            (500, 280, 700, 330, "Authentication\nSuccess", "#f0fdf4", "#10b981"),
+            (200, 400, 400, 450, "Show Error\nMessage", "#fef2f2", "#ef4444"),
+            (500, 380, 700, 430, "Redirect to\nDashboard", "#f0fdf4", "#10b981"),
         ]
         
-        # Draw boxes and text
-        for x1, y1, x2, y2, text in boxes:
-            # Box
-            draw.rectangle([x1, y1, x2, y2], fill="#e2e8f0", outline="#475569", width=2)
-            # Text
+        # Draw elements
+        for x1, y1, x2, y2, text, bg_color, border_color in elements:
+            if "?" in text:  # Decision diamond
+                # Draw diamond shape
+                center_x, center_y = (x1 + x2) // 2, (y1 + y2) // 2
+                width, height = x2 - x1, y2 - y1
+                diamond_points = [
+                    (center_x, y1),  # top
+                    (x2, center_y),  # right
+                    (center_x, y2),  # bottom
+                    (x1, center_y),  # left
+                ]
+                draw.polygon(diamond_points, fill=bg_color, outline=border_color, width=2)
+            else:
+                draw.rectangle([x1, y1, x2, y2], fill=bg_color, outline=border_color, width=2)
+            
+            # Add text
+            lines = text.split('\n')
+            line_height = 20
+            total_height = len(lines) * line_height
+            start_y = y1 + (y2 - y1 - total_height) // 2
+            
+            for i, line in enumerate(lines):
+                text_bbox = draw.textbbox((0, 0), line, font=self.font)
+                text_width = text_bbox[2] - text_bbox[0]
+                text_x = x1 + (x2 - x1 - text_width) // 2
+                text_y = start_y + i * line_height
+                draw.text((text_x, text_y), line, fill="#1f2937", font=self.font)
+        
+        # Draw arrows with labels
+        arrows = [
+            (300, 170, 300, 200, ""),
+            (300, 250, 300, 280, ""),
+            (400, 315, 500, 305, "YES"),
+            (300, 350, 300, 400, "NO"),
+            (600, 330, 600, 380, ""),
+        ]
+        
+        for x1, y1, x2, y2, label in arrows:
+            draw.line([x1, y1, x2, y2], fill="#6b7280", width=2)
+            # Arrowhead
+            if x1 == x2:  # vertical
+                draw.polygon([x2-5, y2-8, x2+5, y2-8, x2, y2], fill="#6b7280")
+            else:  # horizontal
+                draw.polygon([x2-8, y2-5, x2-8, y2+5, x2, y2], fill="#6b7280")
+            
+            # Label
+            if label:
+                label_x = (x1 + x2) // 2 + 10
+                label_y = (y1 + y2) // 2 - 10
+                draw.text((label_x, label_y), label, fill="#059669", font=self.font)
+    
+    def _draw_deployment_flowchart(self, draw):
+        """Draw a CI/CD deployment flowchart."""
+        elements = [
+            (150, 120, 300, 170, "Code Commit", "#eff6ff", "#3b82f6"),
+            (150, 200, 300, 250, "Run Tests", "#fef3c7", "#f59e0b"),
+            (150, 280, 300, 330, "Build Image", "#f0fdf4", "#10b981"),
+            (400, 200, 550, 250, "Deploy to\nStaging", "#fef2f2", "#ef4444"),
+            (400, 300, 550, 350, "Integration\nTests", "#fef3c7", "#f59e0b"),
+            (400, 400, 550, 450, "Deploy to\nProduction", "#f0fdf4", "#10b981"),
+        ]
+        
+        for x1, y1, x2, y2, text, bg_color, border_color in elements:
+            draw.rectangle([x1, y1, x2, y2], fill=bg_color, outline=border_color, width=2)
+            lines = text.split('\n')
+            line_height = 20
+            total_height = len(lines) * line_height
+            start_y = y1 + (y2 - y1 - total_height) // 2
+            
+            for i, line in enumerate(lines):
+                text_bbox = draw.textbbox((0, 0), line, font=self.font)
+                text_width = text_bbox[2] - text_bbox[0]
+                text_x = x1 + (x2 - x1 - text_width) // 2
+                text_y = start_y + i * line_height
+                draw.text((text_x, text_y), line, fill="#1f2937", font=self.font)
+        
+        # Arrows
+        arrows = [
+            (225, 170, 225, 200),
+            (225, 250, 225, 280),
+            (300, 225, 400, 225),
+            (475, 250, 475, 300),
+            (475, 350, 475, 400),
+        ]
+        
+        for x1, y1, x2, y2 in arrows:
+            draw.line([x1, y1, x2, y2], fill="#6b7280", width=2)
+            if x1 == x2:  # vertical
+                draw.polygon([x2-5, y2-8, x2+5, y2-8, x2, y2], fill="#6b7280")
+            else:  # horizontal
+                draw.polygon([x2-8, y2-5, x2-8, y2+5, x2, y2], fill="#6b7280")
+    
+    def _draw_generic_flowchart(self, draw, prompt):
+        """Draw a generic flowchart."""
+        # Generic flowchart boxes
+        boxes = [
+            (200, 150, 400, 220, "START", "#f0f9ff", "#0ea5e9"),
+            (200, 280, 400, 350, "Process 1", "#eff6ff", "#3b82f6"),
+            (200, 410, 400, 480, "Decision?", "#fef3c7", "#f59e0b"),
+            (200, 540, 400, 610, "END", "#fef2f2", "#ef4444"),
+            (600, 410, 800, 480, "Process 2", "#f0fdf4", "#10b981"),
+        ]
+        
+        for x1, y1, x2, y2, text, bg_color, border_color in boxes:
+            if "?" in text:  # Decision diamond
+                center_x, center_y = (x1 + x2) // 2, (y1 + y2) // 2
+                diamond_points = [
+                    (center_x, y1), (x2, center_y), (center_x, y2), (x1, center_y)
+                ]
+                draw.polygon(diamond_points, fill=bg_color, outline=border_color, width=2)
+            else:
+                draw.rectangle([x1, y1, x2, y2], fill=bg_color, outline=border_color, width=2)
+            
             text_bbox = draw.textbbox((0, 0), text, font=self.font)
             text_width = text_bbox[2] - text_bbox[0]
             text_height = text_bbox[3] - text_bbox[1]
             text_x = x1 + (x2 - x1 - text_width) // 2
             text_y = y1 + (y2 - y1 - text_height) // 2
-            draw.text((text_x, text_y), text, fill="#1e293b", font=self.font)
+            draw.text((text_x, text_y), text, fill="#1f2937", font=self.font)
         
-        # Draw arrows
+        # Arrows
         arrows = [
-            (300, 220, 300, 280),  # START to Process 1
-            (300, 350, 300, 410),  # Process 1 to Decision  
-            (300, 480, 300, 540),  # Decision to END
-            (400, 315, 600, 315),  # Decision to Process 2
+            (300, 220, 300, 280),
+            (300, 350, 300, 410),
+            (300, 480, 300, 540),
+            (400, 445, 600, 445),
         ]
         
         for x1, y1, x2, y2 in arrows:
-            draw.line([x1, y1, x2, y2], fill="#475569", width=3)
-            # Simple arrowhead
-            if x1 == x2:  # vertical arrow
-                draw.polygon([x2-5, y2-10, x2+5, y2-10, x2, y2], fill="#475569")
-            else:  # horizontal arrow
-                draw.polygon([x2-10, y2-5, x2-10, y2+5, x2, y2], fill="#475569")
+            draw.line([x1, y1, x2, y2], fill="#6b7280", width=2)
+            if x1 == x2:  # vertical
+                draw.polygon([x2-5, y2-8, x2+5, y2-8, x2, y2], fill="#6b7280")
+            else:  # horizontal
+                draw.polygon([x2-8, y2-5, x2-8, y2+5, x2, y2], fill="#6b7280")
 
     def _draw_architecture_elements(self, draw, prompt):
-        """Draw architecture diagram elements."""
+        """Draw architecture diagram elements - detects Kubernetes and creates specialized diagrams."""
+        # Check if this is a Kubernetes diagram
+        k8s_keywords = ['kubernetes', 'k8s', 'master', 'control plane', 'worker node', 'pod', 'kubelet', 'etcd']
+        if any(keyword in prompt.lower() for keyword in k8s_keywords):
+            self._draw_kubernetes_architecture(draw)
+        else:
+            self._draw_generic_architecture(draw, prompt)
+    
+    def _draw_kubernetes_architecture(self, draw):
+        """Draw a detailed Kubernetes architecture diagram."""
+        # Colors for different components
+        control_plane_color = "#3b82f6"  # Blue
+        worker_node_color = "#10b981"    # Green
+        service_color = "#f59e0b"        # Orange
+        ingress_color = "#8b5cf6"        # Purple
+        pod_color = "#ef4444"            # Red
+        
+        # Draw Control Plane section
+        draw.rectangle([50, 120, 580, 320], fill="#eff6ff", outline=control_plane_color, width=3)
+        draw.text((60, 130), "CONTROL PLANE / MASTER", fill=control_plane_color, font=self.font)
+        
+        # Control Plane Components
+        control_components = [
+            (70, 160, 180, 200, "API Server", control_plane_color),
+            (200, 160, 310, 200, "Controller\nManager", control_plane_color),
+            (330, 160, 440, 200, "Scheduler", control_plane_color),
+            (460, 160, 570, 200, "etcd", control_plane_color),
+        ]
+        
+        for x1, y1, x2, y2, text, color in control_components:
+            draw.rectangle([x1, y1, x2, y2], fill="white", outline=color, width=2)
+            lines = text.split('\n')
+            line_height = 20
+            total_height = len(lines) * line_height
+            start_y = y1 + (y2 - y1 - total_height) // 2
+            
+            for i, line in enumerate(lines):
+                text_bbox = draw.textbbox((0, 0), line, font=self.font)
+                text_width = text_bbox[2] - text_bbox[0]
+                text_x = x1 + (x2 - x1 - text_width) // 2
+                text_y = start_y + i * line_height
+                draw.text((text_x, text_y), line, fill=color, font=self.font)
+        
+        # Worker Nodes
+        worker_nodes = [
+            (650, 120, 1150, 320, "WORKER NODE 1"),
+            (650, 350, 1150, 550, "WORKER NODE 2"),
+        ]
+        
+        for wx1, wy1, wx2, wy2, node_title in worker_nodes:
+            # Worker node container
+            draw.rectangle([wx1, wy1, wx2, wy2], fill="#f0fdf4", outline=worker_node_color, width=3)
+            draw.text((wx1+10, wy1+10), node_title, fill=worker_node_color, font=self.font)
+            
+            # Worker node components
+            node_components = [
+                (wx1+20, wy1+50, wx1+150, wy1+90, "Kubelet", worker_node_color),
+                (wx1+170, wy1+50, wx1+300, wy1+90, "Kube-Proxy", worker_node_color),
+                (wx1+20, wy1+110, wx1+120, wy1+180, "Pod\nApp A", pod_color),
+                (wx1+140, wy1+110, wx1+240, wy1+180, "Pod\nApp B", pod_color),
+                (wx1+260, wy1+110, wx1+360, wy1+180, "Pod\nApp C", pod_color),
+            ]
+            
+            for cx1, cy1, cx2, cy2, text, color in node_components:
+                draw.rectangle([cx1, cy1, cx2, cy2], fill="white", outline=color, width=2)
+                lines = text.split('\n')
+                line_height = 18
+                total_height = len(lines) * line_height
+                start_y = cy1 + (cy2 - cy1 - total_height) // 2
+                
+                for i, line in enumerate(lines):
+                    text_bbox = draw.textbbox((0, 0), line, font=self.font)
+                    text_width = text_bbox[2] - text_bbox[0]
+                    text_x = cx1 + (cx2 - cx1 - text_width) // 2
+                    text_y = start_y + i * line_height
+                    draw.text((text_x, text_y), line, fill=color, font=self.font)
+        
+        # Service Layer
+        draw.rectangle([50, 580, 580, 650], fill="#fef3c7", outline=service_color, width=2)
+        draw.text((60, 590), "SERVICE LAYER", fill=service_color, font=self.font)
+        draw.text((70, 615), "ClusterIP • NodePort • LoadBalancer Services", fill="#92400e", font=self.font)
+        
+        # Ingress Controller
+        draw.rectangle([650, 580, 1150, 650], fill="#f3e8ff", outline=ingress_color, width=2)
+        draw.text((660, 590), "INGRESS CONTROLLER", fill=ingress_color, font=self.font)
+        draw.text((670, 615), "External Access • SSL Termination • Routing", fill="#7c2d12", font=self.font)
+        
+        # Connection arrows
+        connections = [
+            # Control plane to worker nodes
+            (580, 220, 650, 220, "API calls"),
+            (580, 280, 650, 400, "Pod scheduling"),
+            # Services to pods
+            (315, 580, 900, 350, "Service routing"),
+            (315, 580, 900, 480, "Load balancing"),
+            # Ingress to services
+            (650, 615, 580, 615, "Traffic routing"),
+        ]
+        
+        for x1, y1, x2, y2, label in connections:
+            # Draw arrow line
+            draw.line([x1, y1, x2, y2], fill="#6b7280", width=2)
+            # Simple arrowhead
+            if x2 > x1:  # Right arrow
+                draw.polygon([x2-10, y2-5, x2-10, y2+5, x2, y2], fill="#6b7280")
+            else:  # Left arrow
+                draw.polygon([x2+10, y2-5, x2+10, y2+5, x2, y2], fill="#6b7280")
+            
+            # Label (optional, comment out if too cluttered)
+            # mid_x, mid_y = (x1 + x2) // 2, (y1 + y2) // 2 - 10
+            # draw.text((mid_x, mid_y), label, fill="#4b5563", font=self.font)
+        
+        # External traffic arrow
+        draw.line([900, 550, 900, 580], fill=ingress_color, width=4)
+        draw.polygon([895, 585, 905, 585, 900, 590], fill=ingress_color)
+        draw.text((850, 555), "External Traffic", fill=ingress_color, font=self.font)
+        
+    def _draw_generic_architecture(self, draw, prompt):
+        """Draw generic architecture diagram for non-Kubernetes systems."""
         # Component boxes
         components = [
             (100, 150, 300, 250, "Frontend\n(React)"),
