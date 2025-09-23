@@ -12,7 +12,7 @@ SERVICE_URLS = {
     "assessment": os.getenv("ASSESSMENT_SERVICE_URL", "http://localhost:5002"),
     "personalization": os.getenv("PERSONALIZATION_SERVICE_URL", "http://localhost:5003"),
     "summarization": os.getenv("SUMMARIZATION_SERVICE_URL", "http://localhost:5004"),
-    "multimedia": os.getenv("MULTIMEDIA_SERVICE_URL", "http://localhost:5005"),
+    "multimedia": os.getenv("MULTIMEDIA_SERVICE_URL", "http://localhost:8001"),
     "translation": os.getenv("TRANSLATION_SERVICE_URL", "http://localhost:5006"),
 }
 

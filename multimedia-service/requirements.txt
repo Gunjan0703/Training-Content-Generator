@@ -4,3 +4,9 @@ python-dotenv
 psycopg2-binary
 requests
 pillow
+sqlalchemy
+boto3
+numpy
+langchain-aws
+langchain-core
+langchain-community
